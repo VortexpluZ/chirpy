@@ -66,13 +66,21 @@ func capitalizeProfane(s string) string {
 }
 
 func profaneRewrite(text string) string {
-	cleaned := text
-	for _, prof := range []string{" kerfuffle ", " sharbert ", " fornax "} {
-		capProf := capitalizeProfane(prof)
-		cleaned = strings.ReplaceAll(cleaned, prof, " **** ")
-		cleaned = strings.ReplaceAll(cleaned, capProf, " **** ")
+	badWords := map[string]struct{}{
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
 	}
-	return cleaned
+
+	words := strings.Split(text, " ")
+	for i, word := range words {
+		lowered := strings.ToLower(word)
+		if _, exists := badWords[lowered]; exists {
+			words[i] = "****"
+		}
+	}
+
+	return strings.Join(words, " ")
 }
 
 func validateChirp() http.Handler {
