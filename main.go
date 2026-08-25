@@ -103,15 +103,19 @@ func validateChirp() http.Handler {
 	})
 }
 
-func main() {
-	mux := http.NewServeMux()
-	config := apiConfig{}
-	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, req *http.Request) {
+func healthz() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(200)
 		w.Write([]byte("OK"))
 	})
+}
+
+func main() {
+	mux := http.NewServeMux()
+	config := apiConfig{}
+	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
+	mux.Handle("GET /api/healthz", healthz())
 	mux.Handle("POST /api/validate_chirp", validateChirp())
 	mux.Handle("GET /admin/metrics", config.getMetrics())
 	mux.Handle("POST /admin/reset", config.resetMetrics())
