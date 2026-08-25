@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 )
 
@@ -65,20 +66,30 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	w.Write(dat)
 }
 
-func main() {
-	mux := http.NewServeMux()
-	config := apiConfig{}
-	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, req *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(200)
-		w.Write([]byte("OK"))
-	})
-	mux.HandleFunc("POST /api/validate_chirp", func(w http.ResponseWriter, req *http.Request) {
+func capitalizeProfane(s string) string {
+	if len(s) == 0 {
+		return s
+	}
+	return strings.ToUpper(s[:2]) + s[2:]
+}
+
+func profaneRewrite(text string) string {
+	cleaned := text
+	for _, prof := range []string{" kerfuffle ", " sharbert ", " fornax "} {
+		capProf := capitalizeProfane(prof)
+		cleaned = strings.ReplaceAll(cleaned, prof, " **** ")
+		cleaned = strings.ReplaceAll(cleaned, capProf, " **** ")
+	}
+	return cleaned
+}
+
+func validateChirp() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
 		type parameters struct {
 			Body string `json:"body"`
 		}
-		decoder := json.NewDecoder(req.Body)
+		decoder := json.NewDecoder(r.Body)
 		params := parameters{}
 		err := decoder.Decode(&params)
 		if err != nil {
@@ -90,13 +101,25 @@ func main() {
 			return
 		}
 		type returnVals struct {
-			Valid bool `json:"valid"`
+			CleanedBody string `json:"cleaned_body"`
 		}
 		respondWithJSON(w, 200, returnVals{
-			Valid: true,
+			CleanedBody: profaneRewrite(params.Body),
 		})
 
 	})
+}
+
+func main() {
+	mux := http.NewServeMux()
+	config := apiConfig{}
+	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
+	mux.HandleFunc("GET /api/healthz", func(w http.ResponseWriter, req *http.Request) {
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(200)
+		w.Write([]byte("OK"))
+	})
+	mux.Handle("POST /api/validate_chirp", validateChirp())
 	mux.Handle("GET /admin/metrics", config.getMetrics())
 	mux.Handle("POST /admin/reset", config.resetMetrics())
 	server := &http.Server{Handler: mux, Addr: ":8080"}
