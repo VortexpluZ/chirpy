@@ -58,13 +58,6 @@ func respondWithError(w http.ResponseWriter, code int, msg string) {
 	})
 }
 
-func capitalizeProfane(s string) string {
-	if len(s) == 0 {
-		return s
-	}
-	return strings.ToUpper(s[:2]) + s[2:]
-}
-
 func profaneRewrite(text string) string {
 	badWords := map[string]struct{}{
 		"kerfuffle": {},
