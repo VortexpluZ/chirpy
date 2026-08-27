@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -73,7 +74,7 @@ func (cfg *apiConfig) reset() http.Handler {
 		err := cfg.database.TruncateUsers(r.Context())
 		if err != nil {
 			respondWithError(w, 500, "Something went wrong")
-			log.Fatal(err)
+			log.Println(err)
 			return
 		}
 	})
@@ -136,6 +137,41 @@ func (cfg *apiConfig) getChirps() http.Handler {
 		}
 
 		respondWithJSON(w, 200, _chirps)
+
+	})
+}
+
+func (cfg *apiConfig) getChirp() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+		if err != nil {
+			respondWithError(w, 400, "Bad Request")
+			log.Println(err)
+			return
+		}
+
+		chirp, err := cfg.database.GetChirp(r.Context(), chirpID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				respondWithError(w, http.StatusNotFound, "Chirp not found")
+				return
+			}
+
+			respondWithError(w, http.StatusInternalServerError, "Could not retrieve chirp")
+			log.Printf("Error fetching chirp %s: %v", chirpID, err)
+			return
+		}
+
+		_chirp := Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		}
+
+		respondWithJSON(w, 200, _chirp)
 
 	})
 }
@@ -231,6 +267,7 @@ func main() {
 	mux.Handle("POST /api/users", config.createUser())
 	mux.Handle("POST /api/chirps", config.createChirp())
 	mux.Handle("GET /api/chirps", config.getChirps())
+	mux.Handle("GET /api/chirps/{chirpID}", config.getChirp())
 	mux.Handle("GET /admin/metrics", config.getMetrics())
 	mux.Handle("POST /admin/reset", config.reset())
 	server := &http.Server{Handler: mux, Addr: ":8080"}
