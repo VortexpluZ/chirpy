@@ -30,6 +30,14 @@ type User struct {
 	Email     string    `json:"email"`
 }
 
+type Chirp struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Body      string    `json:"body"`
+	UserID    uuid.UUID `json:"user_id"`
+}
+
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits.Add(1)
@@ -65,8 +73,44 @@ func (cfg *apiConfig) reset() http.Handler {
 		err := cfg.database.TruncateUsers(r.Context())
 		if err != nil {
 			respondWithError(w, 500, "Something went wrong")
+			log.Fatal(err)
 			return
 		}
+	})
+}
+
+func (cfg *apiConfig) createChirp() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type parameters struct {
+			Body   string    `json:"body"`
+			UserId uuid.UUID `json:"user_id"`
+		}
+		decoder := json.NewDecoder(r.Body)
+		params := parameters{}
+		err := decoder.Decode(&params)
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		if len(params.Body) > 140 {
+			respondWithError(w, 400, "Chirp is too long")
+			return
+		}
+		chirp, err := cfg.database.CreateChirp(r.Context(), database.CreateChirpParams{
+			Body:   params.Body,
+			UserID: params.UserId,
+		})
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+		respondWithJSON(w, 201, Chirp{
+			ID:        chirp.ID,
+			CreatedAt: chirp.CreatedAt,
+			UpdatedAt: chirp.UpdatedAt,
+			Body:      chirp.Body,
+			UserID:    chirp.UserID,
+		})
 	})
 }
 
@@ -106,33 +150,6 @@ func profaneRewrite(text string) string {
 	}
 
 	return strings.Join(words, " ")
-}
-
-func validateChirp() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-		type parameters struct {
-			Body string `json:"body"`
-		}
-		decoder := json.NewDecoder(r.Body)
-		params := parameters{}
-		err := decoder.Decode(&params)
-		if err != nil {
-			respondWithError(w, 500, "Something went wrong")
-			return
-		}
-		if len(params.Body) > 140 {
-			respondWithError(w, 400, "Chirp is too long")
-			return
-		}
-		type returnVals struct {
-			CleanedBody string `json:"cleaned_body"`
-		}
-		respondWithJSON(w, 200, returnVals{
-			CleanedBody: profaneRewrite(params.Body),
-		})
-
-	})
 }
 
 func healthz() http.Handler {
@@ -185,8 +202,8 @@ func main() {
 	config := apiConfig{database: dbQueries, platform: platform}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.Handle("GET /api/healthz", healthz())
-	mux.Handle("POST /api/validate_chirp", validateChirp())
 	mux.Handle("POST /api/users", config.createUser())
+	mux.Handle("POST /api/chirps", config.createChirp())
 	mux.Handle("GET /admin/metrics", config.getMetrics())
 	mux.Handle("POST /admin/reset", config.reset())
 	server := &http.Server{Handler: mux, Addr: ":8080"}
