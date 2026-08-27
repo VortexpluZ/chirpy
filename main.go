@@ -114,6 +114,32 @@ func (cfg *apiConfig) createChirp() http.Handler {
 	})
 }
 
+func (cfg *apiConfig) getChirps() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+		chirps, err := cfg.database.GetChirps(r.Context())
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			log.Fatalln(err)
+			return
+		}
+
+		_chirps := make([]Chirp, len(chirps))
+		for i := 0; i < len(chirps); i++ {
+			_chirps[i] = Chirp{
+				ID:        chirps[i].ID,
+				CreatedAt: chirps[i].CreatedAt,
+				UpdatedAt: chirps[i].UpdatedAt,
+				Body:      chirps[i].Body,
+				UserID:    chirps[i].UserID,
+			}
+		}
+
+		respondWithJSON(w, 200, _chirps)
+
+	})
+}
+
 func respondWithJSON(w http.ResponseWriter, code int, payload interface{}) {
 	dat, err := json.Marshal(payload)
 	if err != nil {
@@ -204,6 +230,7 @@ func main() {
 	mux.Handle("GET /api/healthz", healthz())
 	mux.Handle("POST /api/users", config.createUser())
 	mux.Handle("POST /api/chirps", config.createChirp())
+	mux.Handle("GET /api/chirps", config.getChirps())
 	mux.Handle("GET /admin/metrics", config.getMetrics())
 	mux.Handle("POST /admin/reset", config.reset())
 	server := &http.Server{Handler: mux, Addr: ":8080"}
