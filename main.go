@@ -1,17 +1,22 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync/atomic"
 
+	"github.com/VortexpluZ/chirpy/internal/database"
 	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
+	database       *database.Queries
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -114,8 +119,15 @@ func healthz() http.Handler {
 }
 
 func main() {
+	dbURL := os.Getenv("DB_URL")
+	db, err := sql.Open("postgres", dbURL)
+	if err != nil {
+		log.Fatal("Error when stablishing connection to DB")
+		return
+	}
+	dbQueries := database.New(db)
 	mux := http.NewServeMux()
-	config := apiConfig{}
+	config := apiConfig{database: dbQueries}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.Handle("GET /api/healthz", healthz())
 	mux.Handle("POST /api/validate_chirp", validateChirp())
