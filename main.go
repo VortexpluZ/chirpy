@@ -9,14 +9,25 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/VortexpluZ/chirpy/internal/database"
+	"github.com/google/uuid"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 )
 
 type apiConfig struct {
 	fileserverHits atomic.Int32
 	database       *database.Queries
+	platform       string
+}
+
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
 }
 
 func (cfg *apiConfig) middlewareMetricsInc(next http.Handler) http.Handler {
@@ -42,6 +53,20 @@ func (cfg *apiConfig) getMetrics() http.Handler {
 func (cfg *apiConfig) resetMetrics() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		cfg.fileserverHits.Store(0)
+	})
+}
+
+func (cfg *apiConfig) reset() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if cfg.platform != "dev" {
+			respondWithError(w, 403, "Forbidden")
+			return
+		}
+		err := cfg.database.TruncateUsers(r.Context())
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
 	})
 }
 
@@ -118,8 +143,38 @@ func healthz() http.Handler {
 	})
 }
 
+func (cfg *apiConfig) createUser() http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		type parameters struct {
+			Email string `json:"email"`
+		}
+		decoder := json.NewDecoder(r.Body)
+		params := parameters{}
+		err := decoder.Decode(&params)
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+
+		user, err := cfg.database.CreateUser(r.Context(), params.Email)
+		if err != nil {
+			respondWithError(w, 500, "Something went wrong")
+			return
+		}
+
+		respondWithJSON(w, 201, User{
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			ID:        user.ID,
+			Email:     user.Email,
+		})
+	})
+}
+
 func main() {
+	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
+	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatal("Error when stablishing connection to DB")
@@ -127,12 +182,13 @@ func main() {
 	}
 	dbQueries := database.New(db)
 	mux := http.NewServeMux()
-	config := apiConfig{database: dbQueries}
+	config := apiConfig{database: dbQueries, platform: platform}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.Handle("GET /api/healthz", healthz())
 	mux.Handle("POST /api/validate_chirp", validateChirp())
+	mux.Handle("POST /api/users", config.createUser())
 	mux.Handle("GET /admin/metrics", config.getMetrics())
-	mux.Handle("POST /admin/reset", config.resetMetrics())
+	mux.Handle("POST /admin/reset", config.reset())
 	server := &http.Server{Handler: mux, Addr: ":8080"}
 	server.ListenAndServe()
 }
