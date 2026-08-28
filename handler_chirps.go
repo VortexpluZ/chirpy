@@ -62,7 +62,7 @@ func (cfg *apiConfig) getChirps() http.Handler {
 		chirps, err := cfg.database.GetChirps(r.Context())
 		if err != nil {
 			respondWithError(w, 500, "Something went wrong")
-			log.Fatalln(err)
+			log.Println(err)
 			return
 		}
 
