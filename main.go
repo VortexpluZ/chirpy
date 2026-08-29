@@ -50,8 +50,7 @@ func main() {
 	platform := os.Getenv("PLATFORM")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
-		log.Fatal("Error when stablishing connection to DB")
-		return
+		log.Fatalf("error connecting to database: %v", err)
 	}
 	dbQueries := database.New(db)
 	mux := http.NewServeMux()
@@ -66,5 +65,6 @@ func main() {
 	mux.HandleFunc("GET /admin/metrics", config.getMetrics)
 	mux.HandleFunc("POST /admin/reset", config.reset)
 	server := &http.Server{Handler: mux, Addr: ":8080"}
-	server.ListenAndServe()
+	log.Printf("serving on port :8080")
+	log.Fatal(server.ListenAndServe())
 }
