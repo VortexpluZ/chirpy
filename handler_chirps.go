@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/VortexpluZ/chirpy/internal/database"
@@ -19,6 +20,24 @@ type Chirp struct {
 	UpdatedAt time.Time `json:"updated_at"`
 	Body      string    `json:"body"`
 	UserID    uuid.UUID `json:"user_id"`
+}
+
+func profaneRewrite(text string) string {
+	badWords := map[string]struct{}{
+		"kerfuffle": {},
+		"sharbert":  {},
+		"fornax":    {},
+	}
+
+	words := strings.Split(text, " ")
+	for i, word := range words {
+		lowered := strings.ToLower(word)
+		if _, exists := badWords[lowered]; exists {
+			words[i] = "****"
+		}
+	}
+
+	return strings.Join(words, " ")
 }
 
 func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
