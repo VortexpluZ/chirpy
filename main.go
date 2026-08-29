@@ -37,12 +37,11 @@ func profaneRewrite(text string) string {
 	return strings.Join(words, " ")
 }
 
-func healthz() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(200)
-		w.Write([]byte("OK"))
-	})
+func healthz(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.WriteHeader(200)
+	w.Write([]byte("OK"))
+
 }
 
 func main() {
@@ -58,7 +57,7 @@ func main() {
 	mux := http.NewServeMux()
 	config := apiConfig{database: dbQueries, platform: platform}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
-	mux.Handle("GET /api/healthz", healthz())
+	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("POST /api/users", config.createUser)
 	mux.HandleFunc("POST /api/login", config.login)
 	mux.HandleFunc("POST /api/chirps", config.createChirp)
