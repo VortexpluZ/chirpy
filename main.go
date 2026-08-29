@@ -5,7 +5,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"sync/atomic"
 
 	"github.com/VortexpluZ/chirpy/internal/database"
@@ -19,23 +18,6 @@ type apiConfig struct {
 	platform       string
 }
 
-func profaneRewrite(text string) string {
-	badWords := map[string]struct{}{
-		"kerfuffle": {},
-		"sharbert":  {},
-		"fornax":    {},
-	}
-
-	words := strings.Split(text, " ")
-	for i, word := range words {
-		lowered := strings.ToLower(word)
-		if _, exists := badWords[lowered]; exists {
-			words[i] = "****"
-		}
-	}
-
-	return strings.Join(words, " ")
-}
 
 func healthz(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
