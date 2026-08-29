@@ -59,13 +59,13 @@ func main() {
 	config := apiConfig{database: dbQueries, platform: platform}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.Handle("GET /api/healthz", healthz())
-	mux.Handle("POST /api/users", config.createUser())
-	mux.Handle("POST /api/login", config.login())
-	mux.Handle("POST /api/chirps", config.createChirp())
-	mux.Handle("GET /api/chirps", config.getChirps())
-	mux.Handle("GET /api/chirps/{chirpID}", config.getChirp())
-	mux.Handle("GET /admin/metrics", config.getMetrics())
-	mux.Handle("POST /admin/reset", config.reset())
+	mux.HandleFunc("POST /api/users", config.createUser)
+	mux.HandleFunc("POST /api/login", config.login)
+	mux.HandleFunc("POST /api/chirps", config.createChirp)
+	mux.HandleFunc("GET /api/chirps", config.getChirps)
+	mux.HandleFunc("GET /api/chirps/{chirpID}", config.getChirp)
+	mux.HandleFunc("GET /admin/metrics", config.getMetrics)
+	mux.HandleFunc("POST /admin/reset", config.reset)
 	server := &http.Server{Handler: mux, Addr: ":8080"}
 	server.ListenAndServe()
 }
