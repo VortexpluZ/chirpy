@@ -2,6 +2,9 @@ package main
 
 import (
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/VortexpluZ/chirpy/internal/auth"
 )
@@ -44,5 +47,66 @@ func TestFailedCheckPasswordHash(t *testing.T) {
 
 	if match {
 		t.Errorf(`pass = %s is equal to notPass = %s`, pass, notPass)
+	}
+}
+
+func TestValidateJwtToken(t *testing.T) {
+	duration, err := time.ParseDuration("3s")
+	expectedUserId := uuid.New()
+	if err != nil {
+		t.Error(err)
+	}
+	jwtToken, err := auth.MakeJWT(expectedUserId, auth.Secret, duration)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	userId, err := auth.ValidateJWT(jwtToken, auth.Secret)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if expectedUserId != userId {
+		t.Errorf(`expectedUserId = %s is equal to userId = %s`, expectedUserId, userId)
+		return
+	}
+}
+
+func TestInvalidSecretForJwtToken(t *testing.T) {
+	duration, err := time.ParseDuration("3s")
+	expectedUserId := uuid.New()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	jwtToken, err := auth.MakeJWT(expectedUserId, "wrong signed secret", duration)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = auth.ValidateJWT(jwtToken, auth.Secret)
+	if err == nil {
+		t.Error("No error was thrown despite wrong signed secret")
+		return
+	}
+}
+
+func TestExpiredJwtToken(t *testing.T) {
+	duration, err := time.ParseDuration("0.5s")
+	expectedUserId := uuid.New()
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	jwtToken, err := auth.MakeJWT(expectedUserId, auth.Secret, duration)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	time.Sleep(1 * time.Second)
+	_, err = auth.ValidateJWT(jwtToken, auth.Secret)
+	if err == nil {
+		t.Error("Expected expired token")
+		return
 	}
 }
