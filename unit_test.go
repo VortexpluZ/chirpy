@@ -1,6 +1,9 @@
 package main
 
 import (
+	"fmt"
+	"net/http"
+	"os"
 	"testing"
 	"time"
 
@@ -8,6 +11,11 @@ import (
 
 	"github.com/VortexpluZ/chirpy/internal/auth"
 )
+
+func getSecret() string {
+	secret := os.Getenv("SECRET")
+	return secret
+}
 
 func TestProfaneRewriteDouble(t *testing.T) {
 	text := "I really need a kerfuffle to go to bed sooner, Fornax !"
@@ -56,12 +64,12 @@ func TestValidateJwtToken(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	jwtToken, err := auth.MakeJWT(expectedUserId, auth.Secret, duration)
+	jwtToken, err := auth.MakeJWT(expectedUserId, getSecret(), duration)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	userId, err := auth.ValidateJWT(jwtToken, auth.Secret)
+	userId, err := auth.ValidateJWT(jwtToken, getSecret())
 	if err != nil {
 		t.Error(err)
 		return
@@ -84,7 +92,7 @@ func TestInvalidSecretForJwtToken(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	_, err = auth.ValidateJWT(jwtToken, auth.Secret)
+	_, err = auth.ValidateJWT(jwtToken, getSecret())
 	if err == nil {
 		t.Error("No error was thrown despite wrong signed secret")
 		return
@@ -98,15 +106,30 @@ func TestExpiredJwtToken(t *testing.T) {
 		t.Error(err)
 		return
 	}
-	jwtToken, err := auth.MakeJWT(expectedUserId, auth.Secret, duration)
+	jwtToken, err := auth.MakeJWT(expectedUserId, getSecret(), duration)
 	if err != nil {
 		t.Error(err)
 		return
 	}
 	time.Sleep(1 * time.Second)
-	_, err = auth.ValidateJWT(jwtToken, auth.Secret)
+	_, err = auth.ValidateJWT(jwtToken, getSecret())
 	if err == nil {
 		t.Error("Expected expired token")
+		return
+	}
+}
+
+func TestGetBearerToken(t *testing.T) {
+	expectedToken := "mytoken"
+	headers := http.Header{}
+	headers.Set("Authorization", fmt.Sprintf("Bearer %s", expectedToken))
+	token, err := auth.GetBearerToken(headers)
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	if expectedToken != token {
+		t.Errorf(`expectedToken = %s is equal to token = %s`, expectedToken, token)
 		return
 	}
 }
