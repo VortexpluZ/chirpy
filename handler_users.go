@@ -103,7 +103,7 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 
 	if !match {
 		respondWithError(w, 401, "Unauthorized")
-		log.Println(err)
+		log.Println("invalid password attempt for user")
 		return
 	}
 	expTime, _ := time.ParseDuration(fmt.Sprintf("%vs", setTokenExpirationTime(params.ExpiresIn)))
