@@ -2,11 +2,42 @@
 
 GET https://example.com/topics/1 HTTP/1.1
 
+
 ###
 
-POST http://localhost:8080/api/validate_chirp HTTP/1.1
+POST http://localhost:8080/admin/reset HTTP/1.1
 content-type: application/json
 
 {
-  "body": "I really need a kerfuffle to go to bed sooner, Fornax !"
+}
+
+###
+
+POST http://localhost:8080/api/users HTTP/1.1
+content-type: application/json
+
+{
+  "email": "mike@bettercall.com",
+  "password": "98765"
+}
+
+
+###
+
+POST http://localhost:8080/api/login HTTP/1.1
+content-type: application/json
+
+{
+  "email": "mike@bettercall.com",
+  "password": "98765"
+}
+
+###
+
+POST http://localhost:8080/api/chirps HTTP/1.1
+content-type: application/json
+Authorization: Bearer 
+
+{
+  "body": "Clearly his taste in women is the same as his taste in lawyers: only the very best... with just a right amount of dirty!"
 }
