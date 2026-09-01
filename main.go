@@ -16,6 +16,7 @@ type apiConfig struct {
 	fileserverHits atomic.Int32
 	database       *database.Queries
 	platform       string
+	secret         string
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {
@@ -29,13 +30,14 @@ func main() {
 	godotenv.Load()
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
+	secret := os.Getenv("SECRET")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("error connecting to database: %v", err)
 	}
 	dbQueries := database.New(db)
 	mux := http.NewServeMux()
-	config := apiConfig{database: dbQueries, platform: platform}
+	config := apiConfig{database: dbQueries, platform: platform, secret: secret}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("POST /api/users", config.createUser)
