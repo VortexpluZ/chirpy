@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -17,6 +18,7 @@ type User struct {
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 	Email     string    `json:"email"`
+	Token     string    `json:"token"`
 }
 
 func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
@@ -61,12 +63,21 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func setTokenExpirationTime(expiresIn int) int {
+	if expiresIn <= 3600 && expiresIn > 0 {
+		return expiresIn
+	}
+	return 3600
+}
+
 func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 
 	type parameters struct {
-		Email    string `json:"email"`
-		Password string `json:"password"`
+		Email     string `json:"email"`
+		Password  string `json:"password"`
+		ExpiresIn int    `json:"expires_in_seconds,omitempty"`
 	}
+
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
@@ -95,12 +106,22 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 		log.Println(err)
 		return
 	}
+	expTime, _ := time.ParseDuration(fmt.Sprintf("%vs", setTokenExpirationTime(params.ExpiresIn)))
+
+	log.Println(expTime)
+	token, err := auth.MakeJWT(user.ID, cfg.secret, expTime)
+	if err != nil {
+		respondWithError(w, 500, "Something went wrong")
+		log.Println(err)
+		return
+	}
 
 	respondWithJSON(w, 200, User{
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		ID:        user.ID,
 		Email:     user.Email,
+		Token:     token,
 	})
 
 }
