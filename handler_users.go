@@ -31,14 +31,14 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 400, "Bad Request")
+		respondWithError(w, http.StatusBadRequest, "Bad Request")
 		log.Println(err)
 		return
 	}
 
 	hashed_password, err := auth.HashPassword(params.Password)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
@@ -49,12 +49,12 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
 		})
 
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
 
-	respondWithJSON(w, 201, User{
+	respondWithJSON(w, http.StatusCreated, User{
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		ID:        user.ID,
@@ -82,27 +82,27 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 400, "Bad Request")
+		respondWithError(w, http.StatusBadRequest, "Bad Request")
 		log.Println(err)
 		return
 	}
 
 	user, err := cfg.database.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
 
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
 
 	if !match {
-		respondWithError(w, 401, "Unauthorized")
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		log.Println("invalid password attempt for user")
 		return
 	}
@@ -111,12 +111,12 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 	log.Println(expTime)
 	token, err := auth.MakeJWT(user.ID, cfg.secret, expTime)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
 
-	respondWithJSON(w, 200, User{
+	respondWithJSON(w, http.StatusOK, User{
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		ID:        user.ID,

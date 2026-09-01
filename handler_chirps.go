@@ -50,24 +50,24 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
 
 	token, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		respondWithError(w, 500, err.Error())
+		respondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	userId, err := auth.ValidateJWT(token, cfg.secret)
 	if err != nil {
-		respondWithError(w, 401, err.Error())
+		respondWithError(w, http.StatusUnauthorized, err.Error())
 		return
 	}
 
 	if len(params.Body) > 140 {
-		respondWithError(w, 400, "Chirp is too long")
+		respondWithError(w, http.StatusBadRequest, "Chirp is too long")
 		return
 	}
 	chirp, err := cfg.database.CreateChirp(r.Context(), database.CreateChirpParams{
@@ -75,10 +75,10 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 		UserID: userId,
 	})
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return
 	}
-	respondWithJSON(w, 201, Chirp{
+	respondWithJSON(w, http.StatusCreated, Chirp{
 		ID:        chirp.ID,
 		CreatedAt: chirp.CreatedAt,
 		UpdatedAt: chirp.UpdatedAt,
@@ -92,7 +92,7 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 
 	chirps, err := cfg.database.GetChirps(r.Context())
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
@@ -108,7 +108,7 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	respondWithJSON(w, 200, _chirps)
+	respondWithJSON(w, http.StatusOK, _chirps)
 
 }
 
@@ -116,7 +116,7 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 
 	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
 	if err != nil {
-		respondWithError(w, 400, "Bad Request")
+		respondWithError(w, http.StatusBadRequest, "Bad Request")
 		log.Println(err)
 		return
 	}
@@ -141,6 +141,6 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 		UserID:    chirp.UserID,
 	}
 
-	respondWithJSON(w, 200, _chirp)
+	respondWithJSON(w, http.StatusOK, _chirp)
 
 }

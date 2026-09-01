@@ -11,7 +11,7 @@ import (
 func (cfg *apiConfig) getMetrics(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(200)
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintf(w, `<html>
 		<body>
 		  <h1>Welcome, Chirpy Admin</h1>
@@ -33,7 +33,7 @@ func (cfg *apiConfig) reset(w http.ResponseWriter, r *http.Request) {
 	}
 	err := cfg.database.TruncateUsers(r.Context())
 	if err != nil {
-		respondWithError(w, 500, "Something went wrong")
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
