@@ -89,14 +89,14 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := cfg.database.GetUserByEmail(r.Context(), params.Email)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		log.Println(err)
 		return
 	}
 
 	match, err := auth.CheckPasswordHash(params.Password, user.HashedPassword)
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
 		log.Println(err)
 		return
 	}
