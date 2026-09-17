@@ -144,3 +144,60 @@ func (cfg *apiConfig) getChirp(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, _chirp)
 
 }
+
+func (cfg *apiConfig) deleteChirp(w http.ResponseWriter, r *http.Request) {
+
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		log.Println(err)
+		return
+	}
+
+	userId, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		log.Println(err)
+		return
+	}
+
+	chirpID, err := uuid.Parse(r.PathValue("chirpID"))
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Bad Request")
+		log.Println(err)
+		return
+	}
+
+	chirp, err := cfg.database.GetChirp(r.Context(), chirpID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "Chirp not found")
+			return
+		}
+
+		respondWithError(w, http.StatusInternalServerError, "Could not retrieve chirp")
+		log.Printf("Error fetching chirp %s: %v", chirpID, err)
+		return
+	}
+
+	if chirp.UserID != userId {
+		respondWithError(w, http.StatusForbidden, "Cannot delete other user's chirp")
+		return
+	}
+
+	_, err = cfg.database.DeleteChirp(r.Context(), chirpID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			respondWithError(w, http.StatusNotFound, "Chirp not found")
+			log.Println(err)
+			return
+		}
+
+		respondWithError(w, http.StatusInternalServerError, "Could not delete chirp")
+		log.Println(err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+
+}
