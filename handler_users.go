@@ -13,13 +13,17 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type UserIdentity struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Email     string    `json:"email"`
+}
+
 type User struct {
-	ID           uuid.UUID `json:"id"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	Email        string    `json:"email"`
-	Token        string    `json:"token"`
-	RefreshToken string    `json:"refresh_token"`
+	UserIdentity
+	Token        string `json:"token"`
+	RefreshToken string `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +59,7 @@ func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusCreated, User{
+	respondWithJSON(w, http.StatusCreated, UserIdentity{
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
 		ID:        user.ID,
@@ -133,4 +137,53 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 		RefreshToken: refresh_token,
 	})
 
+}
+
+func (cfg *apiConfig) updateUser(w http.ResponseWriter, r *http.Request) {
+	token, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		log.Println(err)
+		return
+	}
+	userId, err := auth.ValidateJWT(token, cfg.secret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		log.Println(err)
+		return
+	}
+
+	type parameters struct {
+		NewEmail    string `json:"email"`
+		NewPassword string `json:"password"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err = decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Bad Request")
+		log.Println(err)
+		return
+	}
+
+	hashed_password, err := auth.HashPassword(params.NewPassword)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
+		log.Println(err)
+		return
+	}
+
+	updatedUser, _ := cfg.database.UpdateUser(r.Context(),
+		database.UpdateUserParams{
+			ID:             userId,
+			Email:          params.NewEmail,
+			HashedPassword: hashed_password})
+
+	respondWithJSON(w, http.StatusOK, UserIdentity{
+		ID:        updatedUser.ID,
+		Email:     updatedUser.Email,
+		CreatedAt: updatedUser.CreatedAt,
+		UpdatedAt: updatedUser.UpdatedAt,
+	})
 }
