@@ -14,11 +14,12 @@ import (
 )
 
 type User struct {
-	ID        uuid.UUID `json:"id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
-	Email     string    `json:"email"`
-	Token     string    `json:"token"`
+	ID           uuid.UUID `json:"id"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	Email        string    `json:"email"`
+	Token        string    `json:"token"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 func (cfg *apiConfig) createUser(w http.ResponseWriter, r *http.Request) {
@@ -73,9 +74,8 @@ func setTokenExpirationTime(expiresIn int) int {
 func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 
 	type parameters struct {
-		Email     string `json:"email"`
-		Password  string `json:"password"`
-		ExpiresIn int    `json:"expires_in_seconds,omitempty"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -106,22 +106,31 @@ func (cfg *apiConfig) login(w http.ResponseWriter, r *http.Request) {
 		log.Println("invalid password attempt for user")
 		return
 	}
-	expTime, _ := time.ParseDuration(fmt.Sprintf("%vs", setTokenExpirationTime(params.ExpiresIn)))
+	JwtExpTime, _ := time.ParseDuration(fmt.Sprintf("%vs", 3600))
+	tokenExpTime, _ := time.ParseDuration(fmt.Sprintf("%vh", 1440))
 
-	log.Println(expTime)
-	token, err := auth.MakeJWT(user.ID, cfg.secret, expTime)
+	token, err := auth.MakeJWT(user.ID, cfg.secret, JwtExpTime)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
 		return
 	}
 
+	refresh_token := auth.MakeRefreshToken()
+	cfg.database.CreateRefreshToken(r.Context(),
+		database.CreateRefreshTokenParams{
+			Token:     refresh_token,
+			ExpiresAt: time.Now().Add(tokenExpTime),
+			UserID:    user.ID,
+		})
+
 	respondWithJSON(w, http.StatusOK, User{
-		CreatedAt: user.CreatedAt,
-		UpdatedAt: user.UpdatedAt,
-		ID:        user.ID,
-		Email:     user.Email,
-		Token:     token,
+		CreatedAt:    user.CreatedAt,
+		UpdatedAt:    user.UpdatedAt,
+		ID:           user.ID,
+		Email:        user.Email,
+		Token:        token,
+		RefreshToken: refresh_token,
 	})
 
 }
