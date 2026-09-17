@@ -41,6 +41,7 @@ func main() {
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("POST /api/users", config.createUser)
+	mux.HandleFunc("PUT /api/users", config.updateUser)
 	mux.HandleFunc("POST /api/login", config.login)
 	mux.HandleFunc("POST /api/refresh", config.refreshToken)
 	mux.HandleFunc("POST /api/revoke", config.revokeToken)
