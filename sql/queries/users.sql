@@ -23,3 +23,10 @@ SET updated_at = CURRENT_TIMESTAMP,
     hashed_password = $2
 WHERE id = $1
 RETURNING *;
+
+
+-- name: UpdateUserToRed :one
+UPDATE users
+SET is_chirpy_red = TRUE
+WHERE id = $1
+RETURNING *;
