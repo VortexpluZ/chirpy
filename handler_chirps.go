@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -93,7 +94,7 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 	author_id := r.URL.Query().Get("author_id")
 	var chirps []database.Chirp
 	var err error
-	
+
 	if author_id != "" {
 		user_id, err := uuid.Parse(author_id)
 		if err != nil {
@@ -120,6 +121,32 @@ func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt: chirps[i].UpdatedAt,
 			Body:      chirps[i].Body,
 			UserID:    chirps[i].UserID,
+		}
+	}
+
+	sort_way := r.URL.Query().Get("sort")
+	if sort_way != "" {
+		switch sort_way {
+		case "asc":
+			slices.SortFunc(_chirps, func(a Chirp, b Chirp) int {
+				if a.CreatedAt.Equal(b.CreatedAt) {
+					return 0
+				} else if a.CreatedAt.Before(b.CreatedAt) {
+					return -1
+				} else {
+					return 1
+				}
+			})
+		case "desc":
+			slices.SortFunc(_chirps, func(a Chirp, b Chirp) int {
+				if a.CreatedAt.Equal(b.CreatedAt) {
+					return 0
+				} else if a.CreatedAt.Before(b.CreatedAt) {
+					return 1
+				} else {
+					return -1
+				}
+			})
 		}
 	}
 
