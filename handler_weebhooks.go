@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/VortexpluZ/chirpy/internal/auth"
 	"github.com/google/uuid"
 	_ "github.com/lib/pq"
 )
@@ -19,9 +20,20 @@ type PolkaHook struct {
 
 func (cfg *apiConfig) upgradeUserHook(w http.ResponseWriter, r *http.Request) {
 
+	apiToken, err := auth.GetAPIKey(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	if apiToken != cfg.polkaKey {
+		respondWithError(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
 	decoder := json.NewDecoder(r.Body)
 	polka := PolkaHook{}
-	err := decoder.Decode(&polka)
+	err = decoder.Decode(&polka)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		return

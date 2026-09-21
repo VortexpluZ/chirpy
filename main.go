@@ -17,6 +17,7 @@ type apiConfig struct {
 	database       *database.Queries
 	platform       string
 	secret         string
+	polkaKey       string
 }
 
 func healthz(w http.ResponseWriter, r *http.Request) {
@@ -31,13 +32,14 @@ func main() {
 	dbURL := os.Getenv("DB_URL")
 	platform := os.Getenv("PLATFORM")
 	secret := os.Getenv("SECRET")
+	polkaKey := os.Getenv("POLKA_KEY")
 	db, err := sql.Open("postgres", dbURL)
 	if err != nil {
 		log.Fatalf("error connecting to database: %v", err)
 	}
 	dbQueries := database.New(db)
 	mux := http.NewServeMux()
-	config := apiConfig{database: dbQueries, platform: platform, secret: secret}
+	config := apiConfig{database: dbQueries, platform: platform, secret: secret, polkaKey: polkaKey}
 	mux.Handle("/app/", http.StripPrefix("/app", config.middlewareMetricsInc(http.FileServer(http.Dir(".")))))
 	mux.HandleFunc("GET /api/healthz", healthz)
 	mux.HandleFunc("POST /api/users", config.createUser)
