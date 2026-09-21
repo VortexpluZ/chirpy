@@ -90,7 +90,22 @@ func (cfg *apiConfig) createChirp(w http.ResponseWriter, r *http.Request) {
 
 func (cfg *apiConfig) getChirps(w http.ResponseWriter, r *http.Request) {
 
-	chirps, err := cfg.database.GetChirps(r.Context())
+	author_id := r.URL.Query().Get("author_id")
+	var chirps []database.Chirp
+	var err error
+	
+	if author_id != "" {
+		user_id, err := uuid.Parse(author_id)
+		if err != nil {
+			respondWithError(w, http.StatusBadRequest, "Bad Request")
+			log.Println(err)
+			return
+		}
+		chirps, err = cfg.database.GetChirpsByAuthor(r.Context(), user_id)
+	} else {
+		chirps, err = cfg.database.GetChirps(r.Context())
+	}
+
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Something went wrong")
 		log.Println(err)
